@@ -1,0 +1,82 @@
+<!-- Launches ros_img_processor and two image windows-->
+
+<launch>
+	<!-- User arguments -->
+	<arg name="video_device"  default="/dev/video0" />
+	<arg name="show_image"  default="true" />
+	<arg name="show_rviz"  default="true" />
+
+	<!-- camera frame attached with the world frame -->
+	<node
+		pkg="tf"
+		type="static_transform_publisher"
+		name="camera_frame"
+		args="0 0 0 0 0 0 1 world camera 50" />
+
+	<!-- camera capture -->
+	<node
+		name="usb_cam"
+		pkg="usb_cam"
+		type="usb_cam_node"
+		output="screen" >
+		<param name="video_device" value="$(arg video_device)" />
+		<param name="image_width" value="640" />
+		<param name="image_height" value="480" />
+		<param name="pixel_format" value="yuyv" />
+		<param name="camera_frame_id" value="usb_cam" />
+		<param name="io_method" value="mmap"/>
+	</node>
+
+	<!-- Provides rectified image, given raw image and camera info -->
+	<node
+		name="image_proc"
+		pkg="image_proc"
+		type="image_proc"
+		ns="usb_cam"
+		output="screen"
+		respawn="true" >
+	</node>
+
+	<!--Image processor-->
+	<node name="ros_img_processor"
+		pkg="ros_img_processor"
+		type="ros_img_processor"
+		output="screen"
+		args="1">
+		<remap from="/ros_img_processor/image_in" to="/ardrone/bottom/image_raw"/>
+		<remap from="/ros_img_processor/camera_info_in" to="/ardrone/bottom/camera_info"/>
+	</node>
+
+	<!-- display in/out image -->
+	<group if="$(arg show_image)">
+		<node
+			name="image_view_raw"
+			pkg="image_view"
+			type="image_view"
+			respawn="false"
+			output="screen">
+			<remap from="image" to="/ardrone/bottom/image_raw"/>
+			<param name="autosize" value="false" />
+		</node>
+		<node
+			name="image_view_out"
+			pkg="image_view"
+			type="image_view"
+			respawn="false"
+			output="screen">
+			<remap from="image" to="/ros_img_processor/image_out"/>
+			<param name="autosize" value="false" />
+		</node>
+	</group>
+
+	<!-- Run rviz node -->
+	<group if="$(arg show_rviz)">
+		<node
+			pkg="rviz"
+			type="rviz"
+			name="rviz"
+			args="-d $(find ros_img_processor)/rviz/ros_img_processor.rviz">
+		</node>
+	</group>
+
+</launch>
